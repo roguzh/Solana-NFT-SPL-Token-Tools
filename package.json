@@ -1,0 +1,20 @@
+{
+  "name": "solana-metadata-manager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@metaplex-foundation/js": "^0.15.0",
+    "@metaplex-foundation/mpl-token-metadata": "^2.2.4",
+    "@solana/buffer-layout": "^4.0.0",
+    "@solana/spl-token": "^0.3.5",
+    "@solana/web3.js": "^1.61.1",
+    "bs58": "^5.0.0",
+    "buffer-layout": "^1.2.2"
+  }
+}
