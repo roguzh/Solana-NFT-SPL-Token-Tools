@@ -3,7 +3,7 @@
 
 This repository includes a set of tool allowing users to handle certain operations such as:
 - [SPL token creation with metadata](#SPL-token-creation-withmetadata)
-- [SPL Token metadata update](#-SPL-Token-metadata-update)
+- [SPL token metadata update](#-SPL-Token-metadata-update)
 - [Add metadata to existing token](#Add-metadata-to-existing-token)
 - [Upload files to Arweave](#Upload-files-to-Arweave)
 
@@ -68,7 +68,7 @@ ts-node index.ts update-existing-metadata
         --private-key private_key_of_the_authority_wallet
         --rpc-url https://api.devnet.solana.com
         --token--address token_address
-        --upload-metadata example-metadata.json
+        --metadata-uri https://arweave.net/2jsnetZxCjK4juyQZS1Fpj_zc3oj1wB6tgV9mpzpFeM
 ```
 
 ## Add metadata to existing token
