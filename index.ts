@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata } from './functions';
 import { getKeypair, verifyMetadataOption } from './tools';
+import { uploadFile } from './upload';
 
 const program = new Command();
 
@@ -86,6 +87,32 @@ program.command("update-existing-metadata")
             options.rpcUrl
         );
 
+    });
+
+    program.command("upload-file")
+    .option('--private-key <private-key>', 'Private key to be used as authority of token and upload metadata.')
+    .option('--keypair <path>', 'Path to the keypair file to be used as authority of token and upload metadata.')
+    .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
+    .requiredOption('--file-path <path>', 'Path to the file to be uploaded')
+    .action(async (options) => {
+
+        const keypair = getKeypair(
+            options.privateKey,
+            options.keypair
+        );
+
+        const uri = await uploadFile(
+            options.filePath,
+            keypair,
+            options.rpcUrl
+        )
+
+        if(uri) {
+            console.log(`\tFile has been uploaded successfully\n\tLink: ${uri}`);
+        } else {
+            console.log(`\tAn error has occurred while uploading file!`);
+        }
+        
     });
 
 program.parse();
