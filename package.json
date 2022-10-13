@@ -6,8 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "r.Oguzh",
+  "license": "MIT",
   "dependencies": {
     "@metaplex-foundation/js": "^0.15.0",
     "@metaplex-foundation/mpl-token-metadata": "^2.2.4",
