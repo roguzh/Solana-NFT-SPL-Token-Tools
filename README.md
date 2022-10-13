@@ -9,6 +9,8 @@ This repository includes a set of tool allowing users to handle certain operatio
 
 **This tool set is made for SPL Tokens that follows [The Fungible Standard](https://docs.metaplex.com/programs/token-metadata/token-standard#the-fungible-standard) of Metaplex  (commonly referenced as `Whitelist Token`). Do not use it for NFTs as it is most likely to break NFT's structure.**
 
+> ⚠️ **This repository has not been formally audited. Use it at your own risk.**
+
 ## Installation
 
 ```
