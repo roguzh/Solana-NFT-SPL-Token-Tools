@@ -15,6 +15,8 @@
     "@solana/spl-token": "^0.3.5",
     "@solana/web3.js": "^1.61.1",
     "bs58": "^5.0.0",
-    "buffer-layout": "^1.2.2"
+    "buffer-layout": "^1.2.2",
+    "commander": "^9.4.1",
+    "prompt-sync": "^4.2.0"
   }
 }
