@@ -1,7 +1,7 @@
 import { Keypair } from "@solana/web3.js";
 import base58 from "bs58";
-import { uploadSPLTokenMetadata } from "./upload";
 import { existsSync, readFileSync } from 'fs';
+import { uploadSPLTokenMetadata } from "./functions";
 
 export const BASE_FOLDER = "assets/";
 

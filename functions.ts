@@ -1,8 +1,9 @@
-import { findMetadataPda, lamports } from "@metaplex-foundation/js";
+import { bundlrStorage, findAssociatedTokenAccountPda, findMetadataPda, lamports, Metaplex, toMetaplexFile, walletAdapterIdentity } from "@metaplex-foundation/js";
 import { createCreateMetadataAccountV2Instruction, createUpdateMetadataAccountV2Instruction, DataV2, keyBeet } from "@metaplex-foundation/mpl-token-metadata";
-import { createInitializeMint2Instruction, getMinimumBalanceForRentExemptMint, MINT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { Connection, Keypair, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
-import { verifyOrUploadSPLTokenMetadata } from "./tools";
+import { createInitializeMint2Instruction, getAssociatedTokenAddress, getMinimumBalanceForRentExemptMint, MINT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { Connection, Keypair, ParsedAccountData, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
+import { verifyOrUploadSPLTokenMetadata, BASE_FOLDER } from "./tools";
+import { readFileSync, writeFileSync } from "fs";
 
 export async function createTokenWithMetadata(
     decimals: number,
@@ -188,4 +189,178 @@ export async function addMetadataToExistingToken(
         console.log(`\tAn error has occurred: ${err}`);
         return null;
     }
+}
+
+export async function uploadSPLTokenMetadata(splTokenMetadataFileName: string, keypair: Keypair, rpc: string) {
+    try {
+        const connection = new Connection(rpc);
+        const metaplex = new Metaplex(connection);
+        console.log(`\tUsing wallet address: ${keypair.publicKey.toString()}\t`);
+
+        let bundlrProvider = 'https://devnet.bundlr.network';
+
+        if (rpc !== 'devnet' && rpc !== 'https://api.devnet.solana.com') {
+            bundlrProvider = "https://node1.bundlr.network";
+        }
+
+        metaplex.use(walletAdapterIdentity(keypair));
+        metaplex.use(
+            bundlrStorage({
+                address: bundlrProvider,
+                providerUrl: rpc,
+                timeout: 60000,
+                identity: keypair,
+            }),
+        );
+
+        const splTokenMetadata = JSON.parse(readFileSync(BASE_FOLDER + splTokenMetadataFileName, 'utf-8'));
+        const imageFileBuffer = readFileSync(BASE_FOLDER + splTokenMetadata.image);
+
+        const metaplexImageFile = toMetaplexFile(
+            imageFileBuffer,
+            splTokenMetadata.image
+        );
+
+        return await metaplex.nfts().uploadMetadata({
+            name: splTokenMetadata.name,
+            symbol: splTokenMetadata.symbol,
+            description: splTokenMetadata.description,
+            image: metaplexImageFile
+        }).run();
+
+    } catch (err) {
+        console.log(err);
+        return null
+    }
+}
+
+export async function uploadFile(filePath: string, keypair: Keypair, rpc: string) {
+    try {
+        const connection = new Connection(rpc);
+        const metaplex = new Metaplex(connection);
+        console.log(`\tUsing wallet address: ${keypair.publicKey.toString()}\n`);
+
+        let bundlrProvider = 'https://devnet.bundlr.network';
+
+        if (rpc !== 'devnet' && rpc !== 'https://api.devnet.solana.com') {
+            bundlrProvider = "https://node1.bundlr.network";
+        }
+
+        metaplex.use(walletAdapterIdentity(keypair));
+        metaplex.use(
+            bundlrStorage({
+                address: bundlrProvider,
+                providerUrl: rpc,
+                timeout: 60000,
+                identity: keypair,
+            }),
+        );
+
+        const fileBuffer = readFileSync(filePath);
+        const metaplexFile = toMetaplexFile(
+            fileBuffer,
+            filePath
+        )
+
+        const res = await metaplex.storage().upload(metaplexFile);
+        return res;
+
+    } catch (err) {
+        console.log(err);
+        return null
+    }
+
+}
+
+export async function getHashlistFromCreatorAddress(address: PublicKey, rpc: string, isCandyMachine: boolean) {
+    const connection = new Connection(rpc);
+    const metaplex = new Metaplex(connection);
+
+    console.log(`\n\tStarting to fetch NFTs...`);
+    let hashlist: Array<string> = [];
+
+    if (isCandyMachine) {
+        hashlist = (await metaplex.candyMachines().findMintedNfts({
+            candyMachine: address
+        }).run()).map(e => {
+            if (e.model == "metadata") {
+                return e.mintAddress.toBase58();
+            } else {
+                return e.mint.address.toBase58()
+            }
+        });
+    } else {
+        hashlist = (await metaplex.nfts().findAllByCreator({
+            creator: address
+        }).run()).map(e => {
+            if (e.model == "metadata") {
+                return e.mintAddress.toBase58();
+            } else {
+                return e.mint.address.toBase58()
+            }
+        });
+    }
+
+    console.log(`\n\tNFTs has been fetched successfully!`);
+
+    writeFileSync(
+        'nfts.json',
+        JSON.stringify(hashlist)
+    );
+
+
+    console.log(`\n\tSaved as nfts.json!`);
+    return hashlist;
+}
+
+export async function snapshotHashlist(
+    hashlistPath: string,
+    rpc: string
+) {
+    const hashlist: Array<string> = JSON.parse(readFileSync(hashlistPath, 'utf-8'));
+    const connection = new Connection(rpc);
+    const snapshot: { [address: string]: { amount: number, mints: Array<string> } } = {};
+    //const metaplex = new Metaplex(connection);
+
+    let total_amount = 0;
+    let total_holders = 0;
+
+    console.log(`\tStarting to fetch owners...`);
+
+    for (const hash of hashlist) {
+        const largestAccounts = await connection.getTokenLargestAccounts(new PublicKey(hash));
+        const largestAccount = largestAccounts.value.reduce((prev, curr) => ((prev.uiAmount || 0) > (curr.uiAmount || 0)) ? prev : curr);
+        // console.log(largestAccount.address.toBase58());
+        // console.log(largestAccount.uiAmount);
+
+        const parsedAccountInfo = await connection.getParsedAccountInfo(largestAccount.address);
+        const ownerAddress: string = (parsedAccountInfo.value?.data as ParsedAccountData).parsed.info.owner;
+
+        if (!Object.keys(snapshot).includes(ownerAddress)) {
+            snapshot[ownerAddress] = {
+                amount: 0,
+                mints: []
+            };
+            total_holders++;
+        }
+        snapshot[ownerAddress].mints.push(hash);
+        snapshot[ownerAddress].amount++;
+        total_amount++;
+
+        process.stdout.write(`\n\tFetched ${total_amount} of ${hashlist.length}...`);
+        process.stdout.clearLine(0);
+        process.stdout.cursorTo(0);
+
+    }
+    console.log(`\tOwners has been fetched successfully!\n\tTotal mints: ${total_amount}\n\tTotal holders: ${total_holders}`);
+
+    writeFileSync(
+        'snapshot.json',
+        JSON.stringify(snapshot)
+    );
+
+
+    console.log(`\tSaved as snapshot.json!`);
+
+    return snapshot;
 }

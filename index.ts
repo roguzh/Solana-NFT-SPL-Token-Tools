@@ -1,7 +1,7 @@
+import { PublicKey } from '@solana/web3.js';
 import { Command } from 'commander';
-import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata } from './functions';
+import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, getHashlistFromCreatorAddress, snapshotHashlist } from './functions';
 import { getKeypair, verifyMetadataOption } from './tools';
-import { uploadFile } from './upload';
 
 const program = new Command();
 
@@ -89,7 +89,7 @@ program.command("update-existing-metadata")
 
     });
 
-    program.command("upload-file")
+program.command("upload-file")
     .option('--private-key <private-key>', 'Private key to be used as authority of token and upload metadata.')
     .option('--keypair <path>', 'Path to the keypair file to be used as authority of token and upload metadata.')
     .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
@@ -107,12 +107,40 @@ program.command("update-existing-metadata")
             options.rpcUrl
         )
 
-        if(uri) {
+        if (uri) {
             console.log(`\tFile has been uploaded successfully\n\tLink: ${uri}`);
         } else {
             console.log(`\tAn error has occurred while uploading file!`);
         }
-        
+
     });
 
+program.command("get-hashlist")
+    .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
+    .requiredOption('--address <address>', 'Address of the first verified creator')
+    .option('--candy-machine', 'Address of the first verified creator')
+    .action(async (options) => {
+
+        const creator = new PublicKey(options.creatorAddress);
+
+        await getHashlistFromCreatorAddress(
+            creator,
+            options.rpcUrl,
+            options.candyMachine ? true : false
+        );
+
+    });
+
+    program.command("snapshot-hashlist")
+    .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
+    .requiredOption('--hashlist-path <path>', 'Path to the hashlist file')
+    .action(async (options) => {
+
+        await snapshotHashlist(
+            options.hashlistPath,
+            options.rpcUrl
+        );
+
+    });
+    
 program.parse();
