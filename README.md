@@ -2,8 +2,8 @@
 # rOguzh Solana NFT/SPL-Token Tools
 
 This repository includes a set of tool allowing users to handle certain operations such as:
-- [SPL token creation with metadata](#SPL-token-creation-withmetadata)
-- [SPL token metadata update](#-SPL-Token-metadata-update)
+- [SPL token creation with metadata](#spl-token-creation-with-metadata)
+- [SPL token metadata update](#spl-token-metadata-update)
 - [Add metadata to existing token](#Add-metadata-to-existing-token)
 - [Upload files to Arweave](#Upload-files-to-Arweave)
 - [Extract Hashlist from Candy Machine or 1st Verified Creator](#Extract-hashlist)
