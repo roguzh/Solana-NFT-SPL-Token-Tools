@@ -1,11 +1,14 @@
 
-# Solana metadata manager
+# rOguzh Solana NFT/SPL-Token Tools
 
 This repository includes a set of tool allowing users to handle certain operations such as:
 - [SPL token creation with metadata](#SPL-token-creation-withmetadata)
 - [SPL token metadata update](#-SPL-Token-metadata-update)
 - [Add metadata to existing token](#Add-metadata-to-existing-token)
 - [Upload files to Arweave](#Upload-files-to-Arweave)
+- [Extract Hashlist from Candy Machine or 1st Verified Creator](#Extract-hashlist)
+- [Snapshot Holders](#Snapshot-holders)
+- [Snapshot Metadata of NFTs](#Snapshot-metadata)
 
 **This tool set is made for SPL Tokens that follows [The Fungible Standard](https://docs.metaplex.com/programs/token-metadata/token-standard#the-fungible-standard) of Metaplex  (commonly referenced as `Whitelist Token`). Do not use it for NFTs as it is most likely to break NFT's structure.**
 
@@ -57,7 +60,7 @@ This feature allows you to update the metadata, name and symbol of an SPL token.
 ### Options
 #### Token Address (Required)
 Address of the token you want to update its metadata. Provided wallet has to be the `Update Authority` else you will receive an error.
-- `--token--address <mint-address>`
+- `--token-address <mint-address>`
 #### Metadata (Required)
 This option sets URI to the Metadata of the token. It follows The Fungible Standard of Metaplex.
 There are 2 ways to set the metadata and you have to use one of them:
@@ -69,7 +72,7 @@ There are 2 ways to set the metadata and you have to use one of them:
 ts-node index.ts update-existing-metadata 
         --private-key private_key_of_the_authority_wallet
         --rpc-url https://api.devnet.solana.com
-        --token--address token_address
+        --token-address token_address
         --metadata-uri https://arweave.net/2jsnetZxCjK4juyQZS1Fpj_zc3oj1wB6tgV9mpzpFeM
 ```
 
@@ -78,7 +81,7 @@ This feature allows you to add metadata to existing token. This feature is suppo
 ### Options
 #### Token Address (Required)
 Address of the token you want to update its metadata. Provided wallet has to be the `Update Authority` else you will receive an error.
-- `--token--address <mint-address>`
+- `--token-address <mint-address>`
 #### Metadata (Required)
 This option sets URI to the Metadata of the token. It follows The Fungible Standard of Metaplex.
 There are 2 ways to set the metadata and you have to use one of them:
@@ -90,7 +93,7 @@ There are 2 ways to set the metadata and you have to use one of them:
 ts-node index.ts add-metadata 
         --private-key private_key_of_the_authority_wallet
         --rpc-url https://api.devnet.solana.com
-        --token--address token_address
+        --token-address token_address
         --upload-metadata example-metadata.json
 ```
 
@@ -106,4 +109,47 @@ ts-node index.ts upload-file
         --private-key private_key_of_the_authority_wallet
         --rpc-url https://api.devnet.solana.com
         --file-path assets/example-metadata.json
+```
+
+## Extract hashlist
+This feature allows users to extract hashlist of a collection (given Candy Machine or 1st verified creator address) using Metaplex JS SDK functions.
+### Options
+#### 1st Verified Creator or Candy Machine Address (Required)
+Address of the 1st verified creator of NFTs or the Candy Machine of the collection. Use one of the below options.
+- `--creator-address <address>`
+- `--candy-machine <address>` 
+
+### Example Usage
+```
+ts-node index.ts get-hashlist 
+        --rpc-url https://api.devnet.solana.com
+        --candy-machine cm_v2_address
+```
+
+## Snapshot holders
+This feature allows users to snapshot holders of a given hashlist (json array formatted).
+### Options
+#### Hashlist path (Required)
+Path to the hashlist file
+- `--hashlist-path <path>` 
+
+### Example Usage
+```
+ts-node index.ts snapshot-holders 
+        --rpc-url https://api.devnet.solana.com
+        --hashlist-path hashlist.json
+```
+
+## Snapshot metadata
+This feature allows users to snapshot all the metadata of a given hashlist (json array formatted).
+### Options
+#### Hashlist path (Required)
+Path to the hashlist file
+- `--hashlist-path <path>` 
+
+### Example Usage
+```
+ts-node index.ts snapshot-metadata 
+        --rpc-url https://api.devnet.solana.com
+        --hashlist-path hashlist.json
 ```

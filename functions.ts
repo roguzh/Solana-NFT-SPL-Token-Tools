@@ -1,5 +1,5 @@
 import { bundlrStorage, findAssociatedTokenAccountPda, findMetadataPda, lamports, Metaplex, toMetaplexFile, walletAdapterIdentity } from "@metaplex-foundation/js";
-import { createCreateMetadataAccountV2Instruction, createUpdateMetadataAccountV2Instruction, DataV2, keyBeet } from "@metaplex-foundation/mpl-token-metadata";
+import { createCreateMetadataAccountV2Instruction, createUpdateMetadataAccountV2Instruction, DataV2, keyBeet, Metadata } from "@metaplex-foundation/mpl-token-metadata";
 import { createInitializeMint2Instruction, getAssociatedTokenAddress, getMinimumBalanceForRentExemptMint, MINT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Connection, Keypair, ParsedAccountData, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
 import { verifyOrUploadSPLTokenMetadata, BASE_FOLDER } from "./tools";
@@ -272,7 +272,7 @@ export async function uploadFile(filePath: string, keypair: Keypair, rpc: string
 
 }
 
-export async function getHashlistFromCreatorAddress(address: PublicKey, rpc: string, isCandyMachine: boolean) {
+export async function getHashlistFromAddress(address: PublicKey, rpc: string, isCandyMachine: boolean) {
     const connection = new Connection(rpc);
     const metaplex = new Metaplex(connection);
 
@@ -304,12 +304,12 @@ export async function getHashlistFromCreatorAddress(address: PublicKey, rpc: str
     console.log(`\n\tNFTs has been fetched successfully!`);
 
     writeFileSync(
-        'nfts.json',
+        'hashlist.json',
         JSON.stringify(hashlist)
     );
 
 
-    console.log(`\n\tSaved as nfts.json!`);
+    console.log(`\n\tSaved as hashlist.json!`);
     return hashlist;
 }
 
@@ -347,20 +347,76 @@ export async function snapshotHashlist(
         snapshot[ownerAddress].amount++;
         total_amount++;
 
-        process.stdout.write(`\n\tFetched ${total_amount} of ${hashlist.length}...`);
         process.stdout.clearLine(0);
         process.stdout.cursorTo(0);
+        process.stdout.write(`\tFetched ${total_amount} of ${hashlist.length}...`);
 
     }
     console.log(`\tOwners has been fetched successfully!\n\tTotal mints: ${total_amount}\n\tTotal holders: ${total_holders}`);
 
     writeFileSync(
-        'snapshot.json',
+        'gib-holders.json',
         JSON.stringify(snapshot)
     );
 
-
-    console.log(`\tSaved as snapshot.json!`);
+    console.log(`\tSaved as gib-holders.json!`);
 
     return snapshot;
+}
+
+export async function getMetadata(
+    hashlistPath: string,
+    rpc: string
+) {
+
+    const hashlist: Array<string> = JSON.parse(readFileSync(hashlistPath, 'utf-8'));
+    const connection = new Connection(rpc);
+    const metaplex = new Metaplex(connection);
+
+    let total_amount = 0;
+
+    const meta: Array<{
+        tokenData: any,
+        metadata: any,
+        mint: string
+    }> = [];
+
+    console.log(`\tStarting to fetch metadata...`);
+
+    for (const hash of hashlist) {
+        const metadata = await metaplex.nfts().findByMint({
+            mintAddress: new PublicKey(hash),
+            loadJsonMetadata: true
+        }).run()
+
+        meta.push({
+            tokenData: {
+                name: metadata.name,
+                symbol: metadata.symbol,
+                uri: metadata.uri,
+                sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
+                creators: metadata.creators,
+
+            },
+            metadata: metadata.json,
+            mint: metadata.address.toBase58()
+        });
+
+        total_amount++;
+
+        process.stdout.clearLine(0);
+        process.stdout.cursorTo(0);
+        process.stdout.write(`\tFetched ${total_amount} of ${hashlist.length}...`);
+    }
+
+    console.log(`\n\n\tMetadata has been fetched successfully!\n\tTotal metadata fetched: ${total_amount}\n\t`);
+
+    writeFileSync(
+        'gib-meta.json',
+        JSON.stringify(meta)
+    );
+    
+    console.log(`\tSaved as gib-meta.json!`);
+
+    return meta;
 }

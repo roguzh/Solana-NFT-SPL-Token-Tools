@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { Command } from 'commander';
-import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, getHashlistFromCreatorAddress, snapshotHashlist } from './functions';
+import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, snapshotHashlist, getMetadata, getHashlistFromAddress } from './functions';
 import { getKeypair, verifyMetadataOption } from './tools';
 
 const program = new Command();
@@ -117,21 +117,20 @@ program.command("upload-file")
 
 program.command("get-hashlist")
     .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
-    .requiredOption('--address <address>', 'Address of the first verified creator')
-    .option('--candy-machine', 'Address of the first verified creator')
+    .option('--creator-address <address>', 'Address of the first verified creator')
+    .option('--candy-machine <address>', 'Address of the candy machine(v2)')
     .action(async (options) => {
+        const creator = new PublicKey(options.address);
 
-        const creator = new PublicKey(options.creatorAddress);
-
-        await getHashlistFromCreatorAddress(
-            creator,
+        await getHashlistFromAddress(
+            options.candyMachine ? new PublicKey(options.candyMachine) : new PublicKey(options.creatorAddress),
             options.rpcUrl,
             options.candyMachine ? true : false
         );
 
     });
 
-    program.command("snapshot-hashlist")
+program.command("snapshot-holders")
     .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
     .requiredOption('--hashlist-path <path>', 'Path to the hashlist file')
     .action(async (options) => {
@@ -142,5 +141,17 @@ program.command("get-hashlist")
         );
 
     });
-    
+
+program.command("snapshot-metadata")
+    .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
+    .requiredOption('--hashlist-path <path>', 'Path to the hashlist file')
+    .action(async (options) => {
+
+        await getMetadata(
+            options.hashlistPath,
+            options.rpcUrl
+        );
+
+    });
+
 program.parse();
