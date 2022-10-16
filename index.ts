@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { Command } from 'commander';
-import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, snapshotHashlist, getMetadata, getHashlistFromAddress } from './functions';
+import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, snapshotHashlist, getMetadata, getHashlistFromAddress, getMintersInformation } from './functions';
 import { getKeypair, verifyMetadataOption } from './tools';
 
 const program = new Command();
@@ -120,7 +120,6 @@ program.command("get-hashlist")
     .option('--creator-address <address>', 'Address of the first verified creator')
     .option('--candy-machine <address>', 'Address of the candy machine(v2)')
     .action(async (options) => {
-        const creator = new PublicKey(options.address);
 
         await getHashlistFromAddress(
             options.candyMachine ? new PublicKey(options.candyMachine) : new PublicKey(options.creatorAddress),
@@ -148,6 +147,18 @@ program.command("snapshot-metadata")
     .action(async (options) => {
 
         await getMetadata(
+            options.hashlistPath,
+            options.rpcUrl
+        );
+
+    });
+
+program.command("get-minters-information")
+    .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
+    .requiredOption('--hashlist-path <path>', 'Path to the hashlist file')
+    .action(async (options) => {
+
+        await getMintersInformation(
             options.hashlistPath,
             options.rpcUrl
         );

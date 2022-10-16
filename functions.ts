@@ -1,7 +1,7 @@
 import { bundlrStorage, findAssociatedTokenAccountPda, findMetadataPda, lamports, Metaplex, toMetaplexFile, walletAdapterIdentity } from "@metaplex-foundation/js";
-import { createCreateMetadataAccountV2Instruction, createUpdateMetadataAccountV2Instruction, DataV2, keyBeet, Metadata } from "@metaplex-foundation/mpl-token-metadata";
+import { createCreateMetadataAccountV2Instruction, createUpdateMetadataAccountV2Instruction, DataV2, keyBeet, Metadata, TriedToReplaceAnExistingReservationError } from "@metaplex-foundation/mpl-token-metadata";
 import { createInitializeMint2Instruction, getAssociatedTokenAddress, getMinimumBalanceForRentExemptMint, MINT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
-import { Connection, Keypair, ParsedAccountData, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction } from "@solana/web3.js";
+import { Connection, Keypair, LAMPORTS_PER_SOL, ParsedAccountData, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionResponse } from "@solana/web3.js";
 import { verifyOrUploadSPLTokenMetadata, BASE_FOLDER } from "./tools";
 import { readFileSync, writeFileSync } from "fs";
 
@@ -423,4 +423,71 @@ export async function getMetadata(
     console.log(`\tSaved as gib-meta.json!`);
 
     return meta;
+}
+
+export async function getMintersInformation(
+    hashlistPath: string,
+    rpc: string
+) {
+
+    const hashlist: Array<string> = JSON.parse(readFileSync(hashlistPath, 'utf-8'));
+    const connection = new Connection(rpc);
+
+    let total_amount = 0;
+    let stringBuffer = `Token Address, Minter Address, Mint Price, Mint Date, Signature\n`;
+
+    console.log(`\tStarting to fetch minters information...`);
+
+    const isMintTransaction = (mintAddress: string, txResponse: TransactionResponse) => {
+        return txResponse.transaction.message.accountKeys.map(aK => aK.toBase58()).includes(mintAddress)
+    }
+
+    const getMinter =  (txResponse: TransactionResponse) => {
+        return txResponse.transaction.message.accountKeys[0];
+    }
+
+    const getMintPrice = (txResponse: TransactionResponse) => {
+        if(txResponse.meta){
+            return (txResponse.meta?.preBalances[0] - txResponse.meta?.postBalances[0]) / LAMPORTS_PER_SOL;
+        } else {
+            return null;
+        } 
+    }
+
+    for (const hash of hashlist) {
+        const transactionHistory = await connection.getSignaturesForAddress(
+            new PublicKey(hash)
+        );
+
+        const mintTransaction = transactionHistory.filter(t => (t as any).confirmationStatus == "finalized").reduce((prevT, curT) => 
+            ((prevT.blockTime || Date.now()) < (curT.blockTime || Date.now())) ? prevT : curT
+        );
+
+        const mintTransactionInfo = await connection.getTransaction(mintTransaction.signature);
+        
+        if(mintTransactionInfo && isMintTransaction(hash, mintTransactionInfo)){
+            const mintPrice = getMintPrice(mintTransactionInfo);
+            const minter = getMinter(mintTransactionInfo);
+            const mint = new PublicKey(hash);
+            const mintDate = mintTransactionInfo.blockTime ? new Date(mintTransactionInfo.blockTime * 1000).toUTCString() : "Check signature for date"; 
+            const mintTxId = mintTransaction.signature;
+
+            stringBuffer += `${mint.toBase58() },${minter.toBase58()},${mintPrice ? mintPrice : "CHECK SOLSCAN"},${mintDate.replace(",", "")},${mintTxId}\n`
+        
+            total_amount++;
+            
+            process.stdout.clearLine(0);
+            process.stdout.cursorTo(0);
+            process.stdout.write(`\tFetched ${total_amount} of ${hashlist.length}...`);
+
+            writeFileSync(
+                'minters_information.csv',
+                stringBuffer
+            );
+        }
+    }
+
+    console.log(`\n\n\tMinters information has been fetched successfully!\n\tTotal mint information fetched: ${total_amount}\n\t`);
+
+    console.log(`\tSaved as minters_information.csv!`);
 }
