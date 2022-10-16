@@ -402,6 +402,10 @@ export async function getMetadata(
             mint: metadata.address.toBase58()
         });
 
+        if(metadata.json){
+            meta[meta.length-1].metadata = (await (await fetch(metadata.uri)).json());
+        }
+
         total_amount++;
 
         process.stdout.clearLine(0);
