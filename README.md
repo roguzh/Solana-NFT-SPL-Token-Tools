@@ -17,7 +17,7 @@ This repository includes a set of tool allowing users to handle certain operatio
 ## Installation
 
 ```
-git clone https://github.com/roguzh/Solana-metadata-manager.git && cd "Solana NFT SPL Token Tools" && yarn install
+git clone https://github.com/roguzh/Solana-NFT-SPL-Token-Tools.git && cd "Solana NFT SPL Token Tools" && yarn install
 ```
 
 ## Common Options
