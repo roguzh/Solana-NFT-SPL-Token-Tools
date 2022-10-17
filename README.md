@@ -132,6 +132,10 @@ This feature allows users to snapshot holders of a given hashlist (json array fo
 #### Hashlist path (Required)
 Path to the hashlist file
 - `--hashlist-path <path>` 
+#### Diamond Vault Escrow Wallet (Optional)
+If NFTs are staked in a Diamond Vault escrow wallet, you can pass escrow wallet and snapshot holders as well.
+- `--diamond-vault-wallet <wallet-address>` 
+
 
 ### Example Usage
 ```
