@@ -313,9 +313,10 @@ export async function getHashlistFromAddress(address: PublicKey, rpc: string, is
     return hashlist;
 }
 
-export async function snapshotHashlist(
+export async function snapshotHolders(
     hashlistPath: string,
-    rpc: string
+    rpc: string,
+    diamondVaultWallet: string | null
 ) {
     const hashlist: Array<string> = JSON.parse(readFileSync(hashlistPath, 'utf-8'));
     const connection = new Connection(rpc);
@@ -327,6 +328,25 @@ export async function snapshotHashlist(
 
     console.log(`\tStarting to fetch owners...`);
 
+    const getStakerWallet = async (mintAddress: string) => {
+        const stakeATA = await getAssociatedTokenAddress(
+            new PublicKey(mintAddress),
+            new PublicKey(diamondVaultWallet!)
+        );
+
+        const transactionHistory = (await connection.getSignaturesForAddress(
+            stakeATA
+        ));
+        
+        const lastConfirmedTransaction = transactionHistory.filter(t => !t.err).reduce((prevT, curT) =>
+            ((prevT.blockTime || 0) > (curT.blockTime || 0)) ? prevT : curT
+        );
+
+        const parsedAccountInfo = await connection.getParsedTransaction(lastConfirmedTransaction.signature);
+
+        return parsedAccountInfo?.transaction.message.accountKeys[0].pubkey.toBase58();
+    }
+
     for (const hash of hashlist) {
         const largestAccounts = await connection.getTokenLargestAccounts(new PublicKey(hash));
         const largestAccount = largestAccounts.value.reduce((prev, curr) => ((prev.uiAmount || 0) > (curr.uiAmount || 0)) ? prev : curr);
@@ -334,7 +354,16 @@ export async function snapshotHashlist(
         // console.log(largestAccount.uiAmount);
 
         const parsedAccountInfo = await connection.getParsedAccountInfo(largestAccount.address);
-        const ownerAddress: string = (parsedAccountInfo.value?.data as ParsedAccountData).parsed.info.owner;
+        let ownerAddress: string = (parsedAccountInfo.value?.data as ParsedAccountData).parsed.info.owner;
+
+        if(ownerAddress == diamondVaultWallet){
+            const stakerWallet = await getStakerWallet(hash);
+            if(!stakerWallet){
+                console.log(`\tCouldn't fetch owner of staked mint: ${hash}`);
+            } else {
+                ownerAddress = stakerWallet;
+            }
+        }
 
         if (!Object.keys(snapshot).includes(ownerAddress)) {
             snapshot[ownerAddress] = {
@@ -402,8 +431,8 @@ export async function getMetadata(
             mint: metadata.address.toBase58()
         });
 
-        if(metadata.json){
-            meta[meta.length-1].metadata = (await (await fetch(metadata.uri)).json());
+        if (metadata.json) {
+            meta[meta.length - 1].metadata = (await (await fetch(metadata.uri)).json());
         }
 
         total_amount++;
@@ -419,7 +448,7 @@ export async function getMetadata(
         'gib-meta.json',
         JSON.stringify(meta)
     );
-    
+
     console.log(`\tSaved as gib-meta.json!`);
 
     return meta;
@@ -442,16 +471,16 @@ export async function getMintersInformation(
         return txResponse.transaction.message.accountKeys.map(aK => aK.toBase58()).includes(mintAddress)
     }
 
-    const getMinter =  (txResponse: TransactionResponse) => {
+    const getMinter = (txResponse: TransactionResponse) => {
         return txResponse.transaction.message.accountKeys[0];
     }
 
     const getMintPrice = (txResponse: TransactionResponse) => {
-        if(txResponse.meta){
+        if (txResponse.meta) {
             return (txResponse.meta?.preBalances[0] - txResponse.meta?.postBalances[0]) / LAMPORTS_PER_SOL;
         } else {
             return null;
-        } 
+        }
     }
 
     for (const hash of hashlist) {
@@ -459,23 +488,23 @@ export async function getMintersInformation(
             new PublicKey(hash)
         );
 
-        const mintTransaction = transactionHistory.filter(t => (t as any).confirmationStatus == "finalized").reduce((prevT, curT) => 
+        const mintTransaction = transactionHistory.filter(t => (t as any).confirmationStatus == "finalized").reduce((prevT, curT) =>
             ((prevT.blockTime || Date.now()) < (curT.blockTime || Date.now())) ? prevT : curT
         );
 
         const mintTransactionInfo = await connection.getTransaction(mintTransaction.signature);
-        
-        if(mintTransactionInfo && isMintTransaction(hash, mintTransactionInfo)){
+
+        if (mintTransactionInfo && isMintTransaction(hash, mintTransactionInfo)) {
             const mintPrice = getMintPrice(mintTransactionInfo);
             const minter = getMinter(mintTransactionInfo);
             const mint = new PublicKey(hash);
-            const mintDate = mintTransactionInfo.blockTime ? new Date(mintTransactionInfo.blockTime * 1000).toUTCString() : "Check signature for date"; 
+            const mintDate = mintTransactionInfo.blockTime ? new Date(mintTransactionInfo.blockTime * 1000).toUTCString() : "Check signature for date";
             const mintTxId = mintTransaction.signature;
 
-            stringBuffer += `${mint.toBase58() },${minter.toBase58()},${mintPrice ? mintPrice : "CHECK SOLSCAN"},${mintDate.replace(",", "")},${mintTxId}\n`
-        
+            stringBuffer += `${mint.toBase58()},${minter.toBase58()},${mintPrice ? mintPrice : "CHECK SOLSCAN"},${mintDate.replace(",", "")},${mintTxId}\n`
+
             total_amount++;
-            
+
             process.stdout.clearLine(0);
             process.stdout.cursorTo(0);
             process.stdout.write(`\tFetched ${total_amount} of ${hashlist.length}...`);

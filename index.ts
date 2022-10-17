@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { Command } from 'commander';
-import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, snapshotHashlist, getMetadata, getHashlistFromAddress, getMintersInformation } from './functions';
+import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, getMetadata, getHashlistFromAddress, getMintersInformation, snapshotHolders } from './functions';
 import { getKeypair, verifyMetadataOption } from './tools';
 
 const program = new Command();
@@ -132,11 +132,13 @@ program.command("get-hashlist")
 program.command("snapshot-holders")
     .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
     .requiredOption('--hashlist-path <path>', 'Path to the hashlist file')
+    .option('--diamond-vault-wallet <wallet-address>', 'Address of Diamond Vault\'s escrow wallet')
     .action(async (options) => {
 
-        await snapshotHashlist(
+        await snapshotHolders(
             options.hashlistPath,
-            options.rpcUrl
+            options.rpcUrl,
+            options.diamondVaultWallet || null 
         );
 
     });
