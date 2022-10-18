@@ -92,11 +92,11 @@ export function getKeypair(
           console.log(`\n\tInvalid keypair path: ${keypairPath}`);
       } else {
           try {
-              const keypair = Keypair.fromSecretKey(
-                  JSON.parse(
-                      readFileSync(keypairPath, 'utf-8')
-                  )
-              );
+              const rawKeypairFile = readFileSync(keypairPath, 'utf-8');
+              const jsonParsedKeypairFile = JSON.parse(rawKeypairFile);
+              const keypairSeed = Uint8Array.from( jsonParsedKeypairFile );
+              const keypair = Keypair.fromSecretKey(keypairSeed);
+
               const isConfirmed = getValidationInput(`\tGiven address: ${keypair.publicKey.toBase58()}. Do you confirm?`);
               if(isConfirmed) {
                   return keypair;
@@ -106,7 +106,8 @@ export function getKeypair(
               };
           }
           catch (err) {
-              console.log(`\n\tKeypair wallet is not valid: ${keypairPath}`);
+              console.log(err);
+              console.log(`\n\tKeypair path is not valid: ${keypairPath}`);
               process.exit(-1);
           }
       }
