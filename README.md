@@ -69,7 +69,7 @@ There are 2 ways to set the metadata and you have to use one of them:
 
 ### Example Usage
 ```
-ts-node index.ts update-existing-metadata 
+ts-node index.ts update-existing-spl-metadata 
         --private-key private_key_of_the_authority_wallet
         --rpc-url https://api.devnet.solana.com
         --token-address token_address

@@ -1,6 +1,6 @@
 import { PublicKey } from '@solana/web3.js';
 import { Command } from 'commander';
-import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingTokenMetadata, uploadFile, getMetadata, getHashlistFromAddress, getMintersInformation, snapshotHolders } from './functions';
+import { createTokenWithMetadata, addMetadataToExistingToken, updateExistingSplTokenMetadata, uploadFile, getMetadata, getHashlistFromAddress, getMintersInformation, snapshotHolders, updateNftMetadata } from './functions';
 import { getKeypair, verifyMetadataOption } from './tools';
 
 const program = new Command();
@@ -21,15 +21,15 @@ program.command("create-token-with-metadata")
             options.privateKey,
             options.keypair
         );
-        const metadataURI = verifyMetadataOption(
-            options.metadataURI,
+        const metadataUri = verifyMetadataOption(
+            options.metadataUri,
             options.uploadMetadata
         );
 
         await createTokenWithMetadata(
             options.decimals,
             options.disableFreeze || false,
-            metadataURI,
+            metadataUri,
             keypair,
             options.rpcUrl
         );
@@ -48,13 +48,13 @@ program.command("add-metadata")
             options.privateKey,
             options.keypair
         );
-        const metadataURI = verifyMetadataOption(
-            options.metadataURI,
+        const metadataUri = verifyMetadataOption(
+            options.metadataUri,
             options.uploadMetadata
         );
 
         await addMetadataToExistingToken(
-            metadataURI,
+            metadataUri,
             options.tokenAddress,
             keypair,
             options.rpcUrl
@@ -62,7 +62,7 @@ program.command("add-metadata")
 
     });
 
-program.command("update-existing-metadata")
+program.command("update-existing-spl-metadata")
     .option('--private-key <private-key>', 'Private key to be used as authority of token and upload metadata.')
     .option('--keypair <path>', 'Path to the keypair file to be used as authority of token and upload metadata.')
     .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
@@ -75,13 +75,40 @@ program.command("update-existing-metadata")
             options.privateKey,
             options.keypair
         );
-        const metadataURI = verifyMetadataOption(
-            options.metadataURI,
+        const metadataUri = verifyMetadataOption(
+            options.metadataUri,
             options.uploadMetadata
         );
 
-        await updateExistingTokenMetadata(
-            metadataURI,
+        await updateExistingSplTokenMetadata(
+            metadataUri,
+            options.tokenAddress,
+            keypair,
+            options.rpcUrl
+        );
+
+    });
+
+program.command("update-nft-metadata")
+    .option('--private-key <private-key>', 'Private key to be used as authority of token and upload metadata.')
+    .option('--keypair <path>', 'Path to the keypair file to be used as authority of token and upload metadata.')
+    .option('--metadata-uri <uri>', 'URI containing metadata.')
+    .requiredOption('--rpc-url <rpc>', 'RPC of the network to be used.')
+    .requiredOption('--token-address <mint-address>', 'Address of the token to be updated.')
+    .action(async (options) => {
+
+        const keypair = getKeypair(
+            options.privateKey,
+            options.keypair
+        );
+
+        const metadataUri = verifyMetadataOption(
+            options.metadataUri,
+            null
+        );
+
+        await updateNftMetadata(
+            metadataUri,
             options.tokenAddress,
             keypair,
             options.rpcUrl
@@ -138,7 +165,7 @@ program.command("snapshot-holders")
         await snapshotHolders(
             options.hashlistPath,
             options.rpcUrl,
-            options.diamondVaultWallet || null 
+            options.diamondVaultWallet || null
         );
 
     });

@@ -3,7 +3,8 @@ import { createCreateMetadataAccountV2Instruction, createUpdateMetadataAccountV2
 import { createInitializeMint2Instruction, getAssociatedTokenAddress, getMinimumBalanceForRentExemptMint, MINT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Connection, Keypair, LAMPORTS_PER_SOL, ParsedAccountData, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionResponse } from "@solana/web3.js";
 import { verifyOrUploadSPLTokenMetadata, BASE_FOLDER } from "./tools";
-import { readFileSync, writeFileSync } from "fs";
+import { readFileSync, writeFileSync, existsSync } from "fs";
+import { utf8 } from "@solana/buffer-layout";
 
 export async function createTokenWithMetadata(
     decimals: number,
@@ -80,7 +81,7 @@ export async function createTokenWithMetadata(
     }
 }
 
-export async function updateExistingTokenMetadata(
+export async function updateExistingSplTokenMetadata(
     metadataURI: string,
     tokenAddress: string,
     keypair: Keypair,
@@ -105,6 +106,66 @@ export async function updateExistingTokenMetadata(
         creators: null,
         collection: null,
         uses: null
+    } as DataV2;
+
+    const transaction = new Transaction().add(
+        createUpdateMetadataAccountV2Instruction(
+            {
+                metadata: metadataPDA,
+                updateAuthority: keypair.publicKey,
+            },
+            {
+                updateMetadataAccountArgsV2: {
+                    data: tokenMetadata,
+                    updateAuthority: keypair.publicKey,
+                    primarySaleHappened: true,
+                    isMutable: true,
+                },
+            }
+        )
+    );
+
+    try {
+        const result = await sendAndConfirmTransaction(connection, transaction, [keypair]);
+        console.log(`\tSuccessful Transaction: ${result}`);
+        return result;
+    } catch (err) {
+        console.log(`\tAn error has occurred: ${err}`);
+        return null;
+    }
+}
+
+export async function updateNftMetadata(
+    metadataURI: string,
+    tokenAddress: string,
+    keypair: Keypair,
+    rpc: string
+) {
+    const connection = new Connection(rpc);
+    const metaplex = new Metaplex(connection);
+    const metadataPDA = await findMetadataPda(new PublicKey(tokenAddress));
+    const verifiedURI = await verifyOrUploadSPLTokenMetadata(metadataURI, keypair, rpc);
+
+    if (!verifiedURI) {
+        console.log(`An error occurred while verifying/uploading metadata URI. Please double-check!`);
+        process.exit(-1);
+    }
+
+    const onChainMetadata = await metaplex.nfts().findByMint({
+        mintAddress: new PublicKey(tokenAddress),
+        loadJsonMetadata: true
+    }).run()
+
+    //const newMetadata = await (await fetch(verifiedURI)).json();
+
+    const tokenMetadata = {
+        name: onChainMetadata.name,
+        symbol: onChainMetadata.symbol,
+        uri: verifiedURI,
+        sellerFeeBasisPoints: onChainMetadata.sellerFeeBasisPoints,
+        creators: onChainMetadata.creators,
+        collection: onChainMetadata.collection,
+        uses: onChainMetadata.uses
     } as DataV2;
 
     const transaction = new Transaction().add(
@@ -404,50 +465,68 @@ export async function getMetadata(
 
     let total_amount = 0;
 
+    const checkedMints: Array<String> = [];
+
     const meta: Array<{
         tokenData: any,
         metadata: any,
         mint: string
     }> = [];
 
+    if(existsSync('gib-meta.json')){
+        (JSON.parse(readFileSync('gib-meta.json', 'utf-8')) as Array<{
+            tokenData: any,
+            metadata: any,
+            mint: string
+        }>).forEach(metaObj => {
+            meta.push(metaObj);
+            checkedMints.push(metaObj.mint);
+        })
+        total_amount += meta.length;
+    }
+
     console.log(`\tStarting to fetch metadata...`);
 
     for (const hash of hashlist) {
-        const metadata = await metaplex.nfts().findByMint({
-            mintAddress: new PublicKey(hash),
-            loadJsonMetadata: true
-        }).run()
-
-        meta.push({
-            tokenData: {
-                name: metadata.name,
-                symbol: metadata.symbol,
-                uri: metadata.uri,
-                sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
-                creators: metadata.creators,
-
-            },
-            metadata: metadata.json,
-            mint: metadata.address.toBase58()
-        });
-
-        if (metadata.json) {
-            meta[meta.length - 1].metadata = (await (await fetch(metadata.uri)).json());
+        if(!checkedMints.includes(hash)){
+            const metadata = await metaplex.nfts().findByMint({
+                mintAddress: new PublicKey(hash),
+                loadJsonMetadata: true
+            }).run()
+    
+            meta.push({
+                tokenData: {
+                    name: metadata.name,
+                    symbol: metadata.symbol,
+                    uri: metadata.uri,
+                    sellerFeeBasisPoints: metadata.sellerFeeBasisPoints,
+                    creators: metadata.creators,
+    
+                },
+                metadata: metadata.json,
+                mint: metadata.address.toBase58()
+            });
+    
+            checkedMints.push(metadata.address.toBase58());
+    
+            if (metadata.json) {
+                meta[meta.length - 1].metadata = (await (await fetch(metadata.uri)).json());
+            }
+    
+            total_amount++;
+    
+            writeFileSync(
+                'gib-meta.json',
+                JSON.stringify(meta)
+            );
+    
+            process.stdout.clearLine(0);
+            process.stdout.cursorTo(0);
+            process.stdout.write(`\tFetched ${total_amount} of ${hashlist.length}...`);
         }
-
-        total_amount++;
-
-        process.stdout.clearLine(0);
-        process.stdout.cursorTo(0);
-        process.stdout.write(`\tFetched ${total_amount} of ${hashlist.length}...`);
     }
 
     console.log(`\n\n\tMetadata has been fetched successfully!\n\tTotal metadata fetched: ${total_amount}\n\t`);
-
-    writeFileSync(
-        'gib-meta.json',
-        JSON.stringify(meta)
-    );
 
     console.log(`\tSaved as gib-meta.json!`);
 
