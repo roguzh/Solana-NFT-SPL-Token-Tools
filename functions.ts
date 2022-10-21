@@ -2,9 +2,12 @@ import { bundlrStorage, findAssociatedTokenAccountPda, findMetadataPda, lamports
 import { createCreateMetadataAccountV2Instruction, createUpdateMetadataAccountV2Instruction, DataV2, keyBeet, Metadata, TriedToReplaceAnExistingReservationError } from "@metaplex-foundation/mpl-token-metadata";
 import { createInitializeMint2Instruction, getAssociatedTokenAddress, getMinimumBalanceForRentExemptMint, MINT_SIZE, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Connection, Keypair, LAMPORTS_PER_SOL, ParsedAccountData, PublicKey, sendAndConfirmTransaction, SystemProgram, Transaction, TransactionResponse } from "@solana/web3.js";
-import { verifyOrUploadSPLTokenMetadata, BASE_FOLDER } from "./tools";
+import { verifyOrUploadSPLTokenMetadata, BASE_FOLDER, getValidationInput } from "./tools";
 import { readFileSync, writeFileSync, existsSync } from "fs";
-import { utf8 } from "@solana/buffer-layout";
+import Bundlr from '@bundlr-network/client';
+import base58 from "bs58";
+
+const mime = require("mime-types");
 
 export async function createTokenWithMetadata(
     decimals: number,
@@ -307,28 +310,48 @@ export async function uploadFile(filePath: string, keypair: Keypair, rpc: string
             bundlrProvider = "https://node1.bundlr.network";
         }
 
-        metaplex.use(walletAdapterIdentity(keypair));
-        metaplex.use(
-            bundlrStorage({
-                address: bundlrProvider,
-                providerUrl: rpc,
-                timeout: 60000,
-                identity: keypair,
-            }),
+        const bundlr = new Bundlr(
+            bundlrProvider, 
+            "Solana",
+            base58.encode(keypair.secretKey)
         );
 
-        const fileBuffer = readFileSync(filePath);
-        const metaplexFile = toMetaplexFile(
-            fileBuffer,
-            filePath
-        )
+        // metaplex.use(walletAdapterIdentity(keypair));
+        // metaplex.use(
+        //     bundlrStorage({
+        //         address: bundlrProvider,
+        //         providerUrl: rpc,
+        //         timeout: 60000,
+        //         identity: keypair,
+        //     }),
+        // );
 
-        const res = await metaplex.storage().upload(metaplexFile);
-        return res;
+        const fileBuffer = readFileSync(filePath);
+        const mimeType = mime.lookup(filePath);
+
+        const price = await bundlr.getPrice(fileBuffer.byteLength);
+        const balance = await bundlr.getLoadedBalance();
+
+        if (balance.isLessThan(price)) {
+            await bundlr.fund(balance.minus(price).multipliedBy(1.1).integerValue())
+        }
+            
+        console.log(`\tUpload is going to cost: ${price.dividedBy(LAMPORTS_PER_SOL) }.`);
+        const isConfirmed = getValidationInput("\tDo you confirm?");
+
+        if(isConfirmed){
+            const res = await bundlr.uploader.chunkedUploader.uploadData(
+                fileBuffer,
+                {tags: [{name: "Content-Type", value: mimeType }]}
+            );
+            return `https://arweave.net/` + res.data.id;
+        } else {
+            return null;
+        }
 
     } catch (err) {
         console.log(err);
-        return null
+        return null;
     }
 
 }

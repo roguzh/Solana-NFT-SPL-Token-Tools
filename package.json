@@ -9,6 +9,7 @@
   "author": "r.Oguzh",
   "license": "MIT",
   "dependencies": {
+    "@bundlr-network/client": "^0.8.9",
     "@metaplex-foundation/js": "^0.15.0",
     "@metaplex-foundation/mpl-token-metadata": "^2.2.4",
     "@solana/buffer-layout": "^4.0.0",
@@ -17,6 +18,7 @@
     "bs58": "^5.0.0",
     "buffer-layout": "^1.2.2",
     "commander": "^9.4.1",
+    "mime-types": "^2.1.35",
     "prompt-sync": "^4.2.0"
   }
 }
