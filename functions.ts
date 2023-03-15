@@ -413,22 +413,40 @@ export async function snapshotHolders(
     console.log(`\tStarting to fetch owners...`);
 
     const getStakerWallet = async (mintAddress: string) => {
-        const stakeATA = await getAssociatedTokenAddress(
-            new PublicKey(mintAddress),
-            new PublicKey(diamondVaultWallet!)
-        );
+        try {
+            const stakeATA = await getAssociatedTokenAddress(
+                new PublicKey(mintAddress),
+                new PublicKey(diamondVaultWallet!)
+            );
+    
+            const transactionHistory = (await connection.getSignaturesForAddress(
+                stakeATA
+            ));
+            
+            const lastConfirmedTransaction = transactionHistory.filter(t => !t.err).reduce((prevT, curT) =>
+                ((prevT.blockTime || 0) > (curT.blockTime || 0)) ? prevT : curT
+            );
+    
+            const parsedAccountInfo = await connection.getParsedTransaction(lastConfirmedTransaction.signature);
+    
+            return parsedAccountInfo?.transaction.message.accountKeys[0].pubkey.toBase58();
+        } catch(err){
+            console.log(err);
+            console.log(`Couldn't fetch owner of mint: ${mintAddress}`);
+            return undefined;
+        }
+    }
 
-        const transactionHistory = (await connection.getSignaturesForAddress(
-            stakeATA
-        ));
-        
-        const lastConfirmedTransaction = transactionHistory.filter(t => !t.err).reduce((prevT, curT) =>
-            ((prevT.blockTime || 0) > (curT.blockTime || 0)) ? prevT : curT
-        );
+    const hasBeenDelistedMoreThanAWeek = async(mintAddress: string) => {
 
-        const parsedAccountInfo = await connection.getParsedTransaction(lastConfirmedTransaction.signature);
 
-        return parsedAccountInfo?.transaction.message.accountKeys[0].pubkey.toBase58();
+        const expectedTime = new Date().getTime() - 604800000;
+        const url = `https://api-mainnet.magiceden.dev/v2/tokens/${mintAddress}/activities`;
+        const res: Array<any> = (await (await fetch(url)).json());
+        const filteredActivities = res.filter((activity) => activity.type == "delist" || activity.type == "list");
+        await new Promise(r => setTimeout(r, 550));
+
+        return filteredActivities.length > 0 ? filteredActivities[0].blockTime * 1000 < expectedTime : true;
     }
 
     for (const hash of hashlist) {
@@ -446,9 +464,9 @@ export async function snapshotHolders(
                 console.log(`\tCouldn't fetch owner of staked mint: ${hash}`);
             } else {
                 ownerAddress = stakerWallet;
-            }
+            }            
         }
-
+        
         if (!Object.keys(snapshot).includes(ownerAddress)) {
             snapshot[ownerAddress] = {
                 amount: 0,
@@ -458,6 +476,24 @@ export async function snapshotHolders(
         }
         snapshot[ownerAddress].mints.push(hash);
         snapshot[ownerAddress].amount++;
+
+        // if(ownerAddress != "1BWutmTvYPwDtmw9abTkS4Ssr8no61spGAvW1X6NDix"){
+        //     // const isEligible = await hasBeenDelistedMoreThanAWeek(hash); 
+        //     if(true/*isEligible*/){
+        //         if (!Object.keys(snapshot).includes(ownerAddress)) {
+        //             snapshot[ownerAddress] = {
+        //                 amount: 0,
+        //                 mints: []
+        //             };
+        //             total_holders++;
+        //         }
+        //         snapshot[ownerAddress].mints.push(hash);
+        //         snapshot[ownerAddress].amount++;
+        //     } else {
+        //         console.log(`${hash} is not eligible!`);
+        //     }
+        // }
+
         total_amount++;
 
         process.stdout.clearLine(0);
